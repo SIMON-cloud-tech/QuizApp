@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>QuizApp</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="nav-brand">QuizApp</div>
+    <button class="hamburger" id="hamburger">&#9776;</button>
+    <ul class="nav-links" id="navLinks">
+      <li><button onclick="toggleTheme()">Toggle Theme</button></li>
+      <li><button onclick="showPage('main'); scrollTo('books')">Books</button></li>
+      <li><button onclick="showPage('quizzes')">Quizzes</button></li>
+      <li><button onclick="showPage('summaries')">Summaries</button></li>
+      <li><button onclick="showPage('main'); scrollTo('upload')">New Book</button></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN PAGE -->
+  <div id="page-main">
+
+    <!-- HERO -->
+    <section class="hero">
+      <h1>Welcome to QuizApp</h1>
+      <p>Upload a book to generate exhaustive quizzes or a clean summary powered by AI.</p>
+    </section>
+
+    <!-- UPLOAD -->
+    <section class="section" id="upload">
+      <h2>Upload a Book</h2>
+      <div class="upload-area" id="uploadArea">
+        <p>Drag & drop a PDF here or <label for="fileInput" class="file-label">browse</label></p>
+        <input type="file" id="fileInput" accept=".pdf" hidden />
+      </div>
+      <p id="uploadStatus" class="status-text"></p>
+    </section>
+
+    <!-- BOOKS GRID -->
+    <section class="section" id="books">
+      <h2>Your Books</h2>
+      <div class="books-grid" id="booksGrid">
+        <p id="noBooksMsg">No books uploaded yet.</p>
+      </div>
+    </section>
+
+    <!-- SUMMARY OUTPUT -->
+    <section class="section" id="summaryOutput" style="display:none">
+      <h2>Summary</h2>
+      <div class="output-box" id="summaryText"></div>
+    </section>
+
+    <!-- QUIZ OUTPUT -->
+    <section class="section" id="quizOutput" style="display:none">
+      <h2>Quiz</h2>
+      <div class="quiz-panels">
+        <div class="panel">
+          <h3>Questions</h3>
+          <div class="output-box" id="questionsText"></div>
+        </div>
+        <div class="panel">
+          <h3>Answers</h3>
+          <div class="output-box" id="answersText">
+            <p class="muted">Answers appear 3 minutes after questions are ready.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- QUIZZES PAGE -->
+  <div id="page-quizzes" style="display:none">
+    <section class="section">
+      <h2>All Quizzes</h2>
+      <div id="allQuizzes"></div>
+    </section>
+  </div>
+
+  <!-- SUMMARIES PAGE -->
+  <div id="page-summaries" style="display:none">
+    <section class="section">
+      <h2>All Summaries</h2>
+      <div id="allSummaries"></div>
+    </section>
+  </div>
+
+  <script src="index.js?v=2"></script>
+</body>
+</html>

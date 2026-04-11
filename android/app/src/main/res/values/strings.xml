@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Educate</string>
+    <string name="title_activity_main">Educate</string>
+    <string name="package_name">educate.app</string>
+    <string name="custom_url_scheme">educate.app</string>
+</resources>
