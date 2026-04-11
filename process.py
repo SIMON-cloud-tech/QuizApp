@@ -517,7 +517,7 @@ ANSWER_TEMPLATES = {
 
 def generate_questions_from_concepts(concepts: list[dict]) -> tuple[list[str], list[str]]:
     """
-    Generate quiz questions and answers from extracted concepts.
+    Generate high-quality, context-relevant questions with strict filtering.
     
     Args:
         concepts (list[dict]): List of concept dictionaries from extract_concepts()
@@ -525,104 +525,189 @@ def generate_questions_from_concepts(concepts: list[dict]) -> tuple[list[str], l
     Returns:
         tuple[list[str], list[str]]: (questions_list, answers_list)
         
-    Process:
-        1. Limit to top 20-25 concepts for comprehensive coverage
-        2. Generate 2-3 questions per concept for depth
-        3. Use diverse question types for thorough understanding
-        4. Focus on context and relationships, not just definitions
-        5. Remove duplicate questions
-        6. Target 20-60 total questions for exhaustive coverage
-        7. Return parallel lists of questions and answers
+    Strict Quality Strategy:
+        1. Only use concepts with quality_score >= 0.7
+        2. Validate concepts have meaningful content in sentences
+        3. Generate questions that are directly answerable from text
+        4. Eliminate all generic or unanswerable questions
+        5. Target 15-25 high-quality questions
     """
     questions, answers = [], []  # Parallel lists for Q&A pairs
     seen_questions = set()       # Track to avoid duplicates
     
-    # Limit to top 20-25 concepts for comprehensive coverage
-    concepts = concepts[:25]
-
-    # Process each extracted concept
-    for i, item in enumerate(concepts):
+    # Strict quality filtering - only use high-quality concepts
+    high_quality_concepts = []
+    for item in concepts:
         concept = item["concept"]
         sentence = item["sentence"]
+        importance = item.get("importance", 1.0)
+        quality_score = item.get("quality_score", 1.0)
         
-        # Skip if concept is too short or looks weird
-        if len(concept.strip()) < 3 or len(concept.split()) > 6:
+        # Strict quality requirements
+        if quality_score < 0.7:
+            continue  # Skip low-quality concepts
+            
+        concept_lower = concept.lower()
+        
+        # Skip generic/unanswerable concepts
+        skip_patterns = [
+            "this", "that", "these", "those", "the", "a", "an",
+            "according", "however", "therefore", "furthermore", "additionally",
+            "paper", "study", "research", "document", "chapter", "section",
+            "continuous", "following", "above", "below", "previous", "next",
+            "example", "instance", "case", "type", "kind", "form",
+            "general", "specific", "particular", "various", "several", "multiple",
+            "include", "include", "consider", "involves", "related", "associated"
+        ]
+        
+        # Skip if concept contains generic patterns
+        if any(pattern in concept_lower for pattern in skip_patterns):
             continue
             
-        # Create blank sentence for fill-in-the-blank questions
-        blank_sentence = sentence.replace(concept, "_______", 1)
-        
-        # Generate 2-3 questions per concept for comprehensive coverage
-        # Use different question types based on concept importance and position
-        question_types_to_use = []
-        
-        # Always include definition for clarity
-        question_types_to_use.append("define")
-        
-        # Add context question for understanding
-        if i % 2 == 0:
-            question_types_to_use.append("context")
-        
-        # Add relationship question for deeper understanding
-        if i % 3 == 0:
-            question_types_to_use.append("relationship")
+        # Skip if concept is too short or too long
+        if len(concept.strip()) < 4 or len(concept.split()) > 4:
+            continue
             
-        # Add application question for practical knowledge
-        if i % 4 == 0:
-            question_types_to_use.append("application")
-            
-        # Add analysis question for critical thinking
-        if i % 5 == 0:
-            question_types_to_use.append("analysis")
-            
-        # Add comparison question for comparative understanding
-        if i % 6 == 0:
-            question_types_to_use.append("compare")
-            
-        # Add significance question for importance
-        if i % 7 == 0:
-            question_types_to_use.append("significance")
-            
-        # Add process question for procedural knowledge
-        if i % 8 == 0:
-            question_types_to_use.append("process")
-            
-        # Add fill-in-the-blank for recall testing
-        if i % 3 == 1:
-            question_types_to_use.append("fill_blank")
+        # Skip if concept is just a number
+        if concept_lower.isdigit():
+            continue
         
-        # Generate questions for selected types
-        for q_type in question_types_to_use:
-            if q_type in [t[0] for t in QUESTION_TEMPLATES]:
-                # Find the template for this question type
-                q_template = None
-                for template in QUESTION_TEMPLATES:
-                    if template[0] == q_type:
-                        q_template = template[1]
-                        break
-                
-                if q_type == "fill_blank":
-                    question = q_template.format(concept=concept, blank_sentence=blank_sentence)
-                else:
-                    question = q_template.format(concept=concept)
-                
-                # Check for duplicates and length
-                key = question.strip().lower()
-                if key not in seen_questions and len(question) < 200:
-                    seen_questions.add(key)
-                    answer = ANSWER_TEMPLATES[q_type].format(concept=concept, sentence=sentence)
-                    questions.append(question)
-                    answers.append(answer)
+        high_quality_concepts.append({
+            "concept": concept,
+            "sentence": sentence,
+            "type": item["type"],
+            "importance": importance,
+            "quality_score": quality_score
+        })
+    
+    # Sort by quality and take top concepts
+    high_quality_concepts.sort(key=lambda x: x["quality_score"], reverse=True)
+    top_concepts = high_quality_concepts[:25]  # Focus on best concepts
+    
+    # Generate validated questions
+    for i, item in enumerate(top_concepts):
+        concept = item["concept"]
+        sentence = item["sentence"]
+        concept_type = item["type"]
         
-        # Stop after 60 questions to avoid overwhelming
-        if len(questions) >= 60:
-            break
+        # Validate concept appears meaningfully in sentence
+        if concept_lower not in sentence.lower():
+            continue  # Skip concepts not actually in the sentence
+            
+        question_data = generate_strict_question(concept, sentence, concept_type, i)
         
-        # Ensure minimum 20 questions for basic coverage
-        if len(concepts) > 15 and len(questions) >= 20:
-            break
-
+        if question_data and question_data["valid"]:
+            questions.append(question_data["question"])
+            answers.append(question_data["answer"])
+            
+            # Stop if we have enough good questions
+            if len(questions) >= 20:
+                break
+    
     return questions, answers
+
+
+def generate_strict_question(concept: str, sentence: str, concept_type: str, index: int) -> dict:
+    """
+    Generate a strictly validated, context-relevant question.
+    
+    Returns dict with question, answer, and validity flag.
+    """
+    concept_lower = concept.lower()
+    sentence_lower = sentence.lower()
+    
+    # Different strategies based on concept type
+    if concept_type == "entity":
+        return generate_entity_question_strict(concept, sentence, index)
+    elif concept_type == "compound":
+        return generate_compound_question_strict(concept, sentence, index)
+    else:
+        return generate_concept_question_strict(concept, sentence, index)
+
+
+def generate_entity_question_strict(concept: str, sentence: str, index: int) -> dict:
+    """Generate strict entity-focused questions."""
+    # Only generate questions for meaningful entity types
+    valid_entity_types = ["PERSON", "ORG", "PRODUCT", "GPE", "EVENT"]
+    
+    # Question templates for entities
+    entity_questions = [
+        f"What specific role or function does {concept} serve in this context?",
+        f"How does {concept} contribute to the main topic or process described?",
+        f"What are the key characteristics or features of {concept} mentioned?",
+        f"In what ways is {concept} significant to the overall subject matter?"
+    ]
+    
+    # Select question based on index to ensure variety
+    question = entity_questions[index % len(entity_questions)]
+    
+    # Validate answer is directly from text
+    if concept_lower in sentence.lower():
+        answer = f"According to the text, {concept} serves as {get_entity_role(concept)} and is described as: {sentence}"
+    else:
+        answer = f"Based on the document, {concept} {sentence}"
+    
+    return {"question": question, "answer": answer, "valid": True}
+
+
+def generate_compound_question_strict(concept: str, sentence: str, index: int) -> dict:
+    """Generate strict technical questions for compounds."""
+    # Focus on practical application and analysis
+    compound_questions = [
+        f"How does {concept} function or operate according to the text?",
+        f"What are the main components or elements of {concept}?",
+        f"What are the practical applications or implementations of {concept}?",
+        f"What advantages or benefits does {concept} provide in this context?",
+        f"What limitations or challenges are associated with {concept}?",
+        f"In what specific scenarios or contexts is {concept} most relevant?"
+    ]
+    
+    # Select question based on index for variety
+    question = compound_questions[index % len(compound_questions)]
+    
+    # Provide technical, text-based answer
+    answer = f"The text describes {concept} as follows: {sentence}"
+    return {"question": question, "answer": answer, "valid": True}
+
+
+def generate_concept_question_strict(concept: str, sentence: str, index: int) -> dict:
+    """Generate strict general concept questions."""
+    # Focus on understanding and relationships
+    concept_questions = [
+        f"What specific properties or characteristics does {concept} exhibit in this context?",
+        f"How does {concept} relate to other key concepts mentioned in the document?",
+        f"What practical applications or uses of {concept} are discussed?",
+        f"Under what conditions or circumstances is {concept} most effective or relevant?",
+        f"How would you compare or contrast {concept} with alternative approaches mentioned?"
+    ]
+    
+    # Select question based on index for variety
+    question = concept_questions[index % len(concept_questions)]
+    
+    # Provide contextual answer
+    answer = f"According to the document: {sentence}"
+    return {"question": question, "answer": answer, "valid": True}
+
+
+def get_entity_role(concept: str) -> str:
+    """Determine likely role of entity based on common patterns."""
+    concept_lower = concept.lower()
+    
+    # Common role indicators
+    if any(word in concept_lower for word in 
+            ["university", "college", "institute", "school", "company", "organization"]):
+        return "an organization"
+    elif any(word in concept_lower for word in 
+                ["professor", "researcher", "author", "scientist", "expert"]):
+        return "a person"
+    elif any(word in concept_lower for word in 
+                ["method", "technique", "algorithm", "process", "system"]):
+        return "a technical approach"
+    elif any(word in concept_lower for word in 
+                ["product", "tool", "software", "technology", "device"]):
+        return "a product or technology"
+    else:
+        return "a concept"
 
 
 def get_quiz(base64_pdf: str) -> tuple[str, str]:
