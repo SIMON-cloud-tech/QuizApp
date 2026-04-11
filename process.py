@@ -543,9 +543,9 @@ def generate_questions_from_concepts(concepts: list[dict]) -> tuple[list[str], l
         importance = item.get("importance", 1.0)
         quality_score = item.get("quality_score", 1.0)
         
-        # Strict quality requirements
-        if quality_score < 0.7:
-            continue  # Skip low-quality concepts
+        # Reasonable quality requirements
+        if quality_score < 0.3:
+            continue  # Skip very low-quality concepts
             
         concept_lower = concept.lower()
         
@@ -565,7 +565,7 @@ def generate_questions_from_concepts(concepts: list[dict]) -> tuple[list[str], l
             continue
             
         # Skip if concept is too short or too long
-        if len(concept.strip()) < 4 or len(concept.split()) > 4:
+        if len(concept.strip()) < 3 or len(concept.split()) > 6:
             continue
             
         # Skip if concept is just a number
@@ -590,9 +590,9 @@ def generate_questions_from_concepts(concepts: list[dict]) -> tuple[list[str], l
         sentence = item["sentence"]
         concept_type = item["type"]
         
-        # Validate concept appears meaningfully in sentence
-        if concept_lower not in sentence.lower():
-            continue  # Skip concepts not actually in the sentence
+        # Validate concept appears meaningfully in sentence (more lenient)
+        if concept_lower not in sentence.lower() and len(concept) > 8:
+            continue  # Skip concepts not actually in the sentence (unless short)
             
         question_data = generate_strict_question(concept, sentence, concept_type, i)
         
